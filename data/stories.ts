@@ -1,3 +1,4 @@
+import { map1Stories } from "./map1-stories";
 import { map5Stories } from "./map5-stories";
 
 export type Dialogue = {
@@ -944,10 +945,12 @@ export const stories: Story[] = [
       ),
     ],
   },
+  ...map1Stories,
   ...map5Stories,
 ];
 
 export const mapColors: Record<number, string> = {
+  1: "#F59E0B",
   2: "#0E7490",
   3: "#C2410C",
   4: "#1D4ED8",

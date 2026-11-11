@@ -23,7 +23,7 @@ import { storyMaterials } from "@/data/materials";
 import { stories, type Story } from "@/data/stories";
 import { shareImageInBrowser } from "@/lib/share-material";
 
-const MAPS = [2, 3, 4, 5];
+const MAPS = [1, 2, 3, 4, 5];
 
 function triggerTap() {
   if (Platform.OS !== "web") {
