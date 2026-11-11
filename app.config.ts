@@ -50,9 +50,9 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
-    "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     adaptiveIcon: {
@@ -89,7 +89,8 @@ const config: ExpoConfig = {
     [
       "expo-audio",
       {
-        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
+        microphonePermission:
+          "Allow $(PRODUCT_NAME) to access your microphone.",
       },
     ],
     [
@@ -124,6 +125,11 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
+  },
+  extra: {
+    eas: {
+      projectId: "499e376c-ac42-40fd-a35e-0e13b06c8ccc",
+    },
   },
 };
 
