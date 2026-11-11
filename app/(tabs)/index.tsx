@@ -2,7 +2,9 @@ import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from "expo-au
 import { useKeepAwake } from "expo-keep-awake";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   FlatList,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -13,7 +15,9 @@ import {
 import * as Haptics from "expo-haptics";
 
 import { ScreenContainer } from "@/components/screen-container";
+import { storyMaterials } from "@/data/materials";
 import { stories, type Story } from "@/data/stories";
+import { shareImageInBrowser } from "@/lib/share-material";
 
 const MAPS = [2, 3, 4];
 
@@ -287,6 +291,8 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
             {isPlaying ? "A sequência avança sozinha ao terminar cada fala." : "Dê play para ouvir e acompanhar a aventura."}
           </Text>
 
+          <StoryMaterial story={story} />
+
           <View style={styles.scriptSection}>
             <View style={styles.scriptHeadingRow}>
               <View>
@@ -319,6 +325,54 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
         </ScrollView>
       </View>
     </ScreenContainer>
+  );
+}
+
+function StoryMaterial({ story }: { story: Story }) {
+  const material = storyMaterials[story.id];
+  const [sharing, setSharing] = useState<string | null>(null);
+
+  if (!material) return null;
+
+  const share = async (key: "personagem" | "acessorios", title: string) => {
+    triggerTap();
+    setSharing(key);
+    try {
+      await shareImageInBrowser(material[key], `${story.title} - ${title}`);
+    } catch {
+      Alert.alert("Não foi possível compartilhar", "Tente novamente em instantes.");
+    } finally {
+      setSharing(null);
+    }
+  };
+
+  const items = [
+    { key: "personagem" as const, label: "Personagem", source: material.personagem },
+    { key: "acessorios" as const, label: "Acessórios", source: material.acessorios },
+  ];
+
+  return (
+    <View style={styles.materialSection}>
+      <Text style={styles.sectionKicker}>MATERIAL DA HISTÓRIA</Text>
+      <Text style={styles.materialTitle}>Personagem e acessórios</Text>
+      <View style={styles.materialRow}>
+        {items.map((item) => (
+          <View key={item.key} style={styles.materialCard}>
+            <View style={styles.materialImageBox}>
+              <Image source={item.source} style={styles.materialImage} resizeMode="contain" />
+            </View>
+            <Text style={styles.materialLabel}>{item.label}</Text>
+            <Pressable
+              onPress={() => share(item.key, item.label)}
+              disabled={sharing !== null}
+              style={({ pressed }) => [styles.shareButton, pressed && styles.pressed, sharing !== null && styles.disabled]}
+            >
+              <Text style={styles.shareButtonText}>{sharing === item.key ? "Abrindo..." : "Compartilhar"}</Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -403,6 +457,15 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.3 },
   pressed: { opacity: 0.72 },
   sequenceHint: { color: "#829AB1", fontSize: 12, textAlign: "center", marginTop: 14, lineHeight: 18 },
+  materialSection: { marginTop: 28, backgroundColor: "#F5FAFC", borderRadius: 24, borderWidth: 1, borderColor: "#E6EEF4", padding: 18 },
+  materialTitle: { color: "#102A43", fontSize: 22, fontWeight: "800", marginTop: 3, marginBottom: 14, letterSpacing: -0.4 },
+  materialRow: { flexDirection: "row", gap: 12 },
+  materialCard: { flex: 1, backgroundColor: "#FFFFFF", borderRadius: 18, borderWidth: 1, borderColor: "#E6EEF4", padding: 12, alignItems: "center" },
+  materialImageBox: { width: "100%", aspectRatio: 0.85, alignItems: "center", justifyContent: "center" },
+  materialImage: { width: "100%", height: "100%" },
+  materialLabel: { color: "#102A43", fontSize: 16, fontWeight: "800", marginTop: 8, marginBottom: 10 },
+  shareButton: { alignSelf: "stretch", alignItems: "center", borderRadius: 999, borderWidth: 1, borderColor: "#D9E2EC", backgroundColor: "#FFFFFF", paddingVertical: 11 },
+  shareButtonText: { color: "#102A43", fontSize: 14, fontWeight: "800" },
   scriptSection: { marginTop: 32 },
   scriptHeadingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 13 },
   scriptTitle: { color: "#102A43", fontSize: 21, fontWeight: "800", marginTop: 3 },
