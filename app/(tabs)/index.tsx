@@ -18,7 +18,9 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 
+import { MapLightbox } from "@/components/map-lightbox";
 import { ScreenContainer } from "@/components/screen-container";
+import { mapImages } from "@/data/maps";
 import { storyMaterials } from "@/data/materials";
 import { stories, type Story } from "@/data/stories";
 import { shareImageInBrowser } from "@/lib/share-material";
@@ -287,6 +289,9 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.playerContent}
         >
+          <MapPreview map={story.map} />
+          <StoryMaterial story={story} />
+
           <View
             style={[styles.storyPill, { backgroundColor: `${story.accent}18` }]}
           >
@@ -380,8 +385,6 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
               : "Dê play para ouvir e acompanhar a aventura."}
           </Text>
 
-          <StoryMaterial story={story} />
-
           <View style={styles.scriptSection}>
             <View style={styles.scriptHeadingRow}>
               <View>
@@ -447,17 +450,61 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
   );
 }
 
+function MapPreview({ map }: { map: number }) {
+  const [open, setOpen] = useState(false);
+  const source = mapImages[map];
+
+  if (!source) return null;
+
+  const title = `Mapa ${map}`;
+  const openMap = () => {
+    triggerTap();
+    setOpen(true);
+  };
+
+  return (
+    <View style={styles.mapCard}>
+      <Pressable
+        onPress={openMap}
+        accessibilityRole="button"
+        accessibilityLabel={`Ampliar ${title}`}
+        style={({ pressed }) => [styles.mapImageBox, pressed && styles.pressed]}
+      >
+        <Image source={source} style={styles.mapImage} resizeMode="cover" />
+      </Pressable>
+      <View style={styles.mapFooter}>
+        <Text style={styles.mapHint}>Toque para ampliar e explorar</Text>
+        <Pressable
+          onPress={openMap}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.mapOpenButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.mapOpenText}>Abrir</Text>
+        </Pressable>
+      </View>
+      <MapLightbox
+        visible={open}
+        onClose={() => setOpen(false)}
+        source={source}
+        title={title}
+      />
+    </View>
+  );
+}
+
+type MaterialKey = "personagem" | "acessorios";
+
 function StoryMaterial({ story }: { story: Story }) {
   const material = storyMaterials[story.id];
-  const [sharing, setSharing] = useState<string | null>(null);
+  const [sharing, setSharing] = useState<MaterialKey | null>(null);
 
-  if (!material) return null;
-
-  const share = async (key: "personagem" | "acessorios", title: string) => {
+  const share = async (key: MaterialKey, title: string) => {
+    const source = material?.[key];
+    if (!source) return;
     triggerTap();
     setSharing(key);
     try {
-      await shareImageInBrowser(material[key], `${story.title} - ${title}`);
+      await shareImageInBrowser(source, `${story.title} - ${title}`);
     } catch {
       Alert.alert(
         "Não foi possível compartilhar",
@@ -468,17 +515,9 @@ function StoryMaterial({ story }: { story: Story }) {
     }
   };
 
-  const items = [
-    {
-      key: "personagem" as const,
-      label: "Personagem",
-      source: material.personagem,
-    },
-    {
-      key: "acessorios" as const,
-      label: "Acessórios",
-      source: material.acessorios,
-    },
+  const items: { key: MaterialKey; label: string }[] = [
+    { key: "personagem", label: "Personagem" },
+    { key: "acessorios", label: "Acessórios" },
   ];
 
   return (
@@ -486,31 +525,40 @@ function StoryMaterial({ story }: { story: Story }) {
       <Text style={styles.sectionKicker}>MATERIAL DA HISTÓRIA</Text>
       <Text style={styles.materialTitle}>Personagem e acessórios</Text>
       <View style={styles.materialRow}>
-        {items.map((item) => (
-          <View key={item.key} style={styles.materialCard}>
-            <View style={styles.materialImageBox}>
-              <Image
-                source={item.source}
-                style={styles.materialImage}
-                resizeMode="contain"
-              />
+        {items.map((item) => {
+          const source = material?.[item.key];
+          const busy = sharing !== null;
+          return (
+            <View key={item.key} style={styles.materialCard}>
+              <View style={styles.materialImageBox}>
+                {source ? (
+                  <Image
+                    source={source}
+                    style={styles.materialImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text style={styles.materialEmpty}>Imagem em breve</Text>
+                )}
+              </View>
+              <Text style={styles.materialLabel}>{item.label}</Text>
+              <Pressable
+                onPress={() => share(item.key, item.label)}
+                disabled={!source || busy}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.shareButton,
+                  pressed && styles.pressed,
+                  (!source || busy) && styles.disabled,
+                ]}
+              >
+                <Text style={styles.shareButtonText}>
+                  {sharing === item.key ? "Abrindo..." : "Compartilhar"}
+                </Text>
+              </Pressable>
             </View>
-            <Text style={styles.materialLabel}>{item.label}</Text>
-            <Pressable
-              onPress={() => share(item.key, item.label)}
-              disabled={sharing !== null}
-              style={({ pressed }) => [
-                styles.shareButton,
-                pressed && styles.pressed,
-                sharing !== null && styles.disabled,
-              ]}
-            >
-              <Text style={styles.shareButtonText}>
-                {sharing === item.key ? "Abrindo..." : "Compartilhar"}
-              </Text>
-            </Pressable>
-          </View>
-        ))}
+          );
+        })}
       </View>
     </View>
   );
@@ -819,6 +867,39 @@ const styles = StyleSheet.create({
     marginTop: 14,
     lineHeight: 18,
   },
+  mapCard: {
+    backgroundColor: "#F5FAFC",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#E6EEF4",
+    padding: 12,
+    marginBottom: 20,
+  },
+  mapImageBox: {
+    width: "100%",
+    aspectRatio: 1.4,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#DCEBF2",
+  },
+  mapImage: { width: "100%", height: "100%" },
+  mapFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 10,
+  },
+  mapHint: { flex: 1, color: "#102A43", fontSize: 14, fontWeight: "700" },
+  mapOpenButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#0B3954",
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  mapOpenText: { color: "#0B3954", fontSize: 14, fontWeight: "800" },
+  materialEmpty: { color: "#829AB1", fontSize: 13, fontWeight: "700", textAlign: "center" },
   materialSection: {
     marginTop: 28,
     backgroundColor: "#F5FAFC",

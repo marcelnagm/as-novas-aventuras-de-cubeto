@@ -1,6 +1,6 @@
 export type StoryMaterial = {
-  personagem: number;
-  acessorios: number;
+  personagem?: number;
+  acessorios?: number;
 };
 
 /** Imagens de personagem e acessórios, indexadas pelo id da história (ex.: "m2h1"). */
@@ -12,6 +12,12 @@ export const storyMaterials: Record<string, StoryMaterial> = {
   m1h2: {
     personagem: require("../assets/material/m1h2-personagem.jpg"),
     acessorios: require("../assets/material/m1h2-acessorios.jpg"),
+  },
+  m1h3: {
+    personagem: require("../assets/material/m1h3-personagem.jpg"),
+  },
+  m1h4: {
+    personagem: require("../assets/material/m1h4-personagem.jpg"),
   },
   m2h1: {
     personagem: require("../assets/material/m2h1-personagem.jpg"),
