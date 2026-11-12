@@ -10,6 +10,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -29,6 +30,8 @@ import { shareImage } from "@/lib/share-material";
 
 const MAPS = [1, 2, 3, 4, 5];
 const AUTOPLAY_KEY = "cubeto:autoplay";
+const CONTACT_EMAIL = "marcel.nagm@gmail.com";
+const PROJECT_GITHUB = "https://github.com/marcelnagm/as-novas-aventuras-de-cubeto";
 
 function triggerTap() {
   if (Platform.OS !== "web") {
@@ -131,10 +134,49 @@ export default function HomeScreen() {
           />
         )}
         ListFooterComponent={
-          <Text style={styles.footerNote}>Mais aventuras a caminho.</Text>
+          <View>
+            <ContactSection />
+            <Text style={styles.footerNote}>Mais aventuras a caminho.</Text>
+          </View>
         }
       />
     </ScreenContainer>
+  );
+}
+
+function ContactSection() {
+  const open = (url: string) => {
+    triggerTap();
+    Linking.openURL(url).catch(() => {
+      Alert.alert("Não foi possível abrir o link", url);
+    });
+  };
+
+  return (
+    <View style={styles.contactSection}>
+      <Text style={styles.sectionKicker}>CONTATO</Text>
+      <Text style={styles.contactTitle}>Fale com a gente</Text>
+      <Pressable
+        onPress={() => open(`mailto:${CONTACT_EMAIL}`)}
+        accessibilityRole="link"
+        accessibilityLabel={`Enviar e-mail para ${CONTACT_EMAIL}`}
+        style={({ pressed }) => [styles.contactRow, pressed && styles.pressed]}
+      >
+        <Text style={styles.contactLabel}>E-mail</Text>
+        <Text style={styles.contactValue}>{CONTACT_EMAIL}</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => open(PROJECT_GITHUB)}
+        accessibilityRole="link"
+        accessibilityLabel="Abrir o GitHub do projeto"
+        style={({ pressed }) => [styles.contactRow, pressed && styles.pressed]}
+      >
+        <Text style={styles.contactLabel}>GitHub do projeto</Text>
+        <Text style={styles.contactValue}>
+          github.com/marcelnagm/as-novas-aventuras-de-cubeto
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -756,6 +798,31 @@ const styles = StyleSheet.create({
   },
   cardCharacter: { color: "#334E68", fontSize: 12, fontWeight: "700", flex: 1 },
   cardCount: { color: "#829AB1", fontSize: 12, fontWeight: "700" },
+  contactSection: { marginTop: 32 },
+  contactTitle: {
+    color: "#102A43",
+    fontSize: 22,
+    fontWeight: "800",
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  contactRow: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#D9E2EC",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    marginBottom: 10,
+  },
+  contactLabel: {
+    color: "#627D98",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    marginBottom: 3,
+  },
+  contactValue: { color: "#0B3954", fontSize: 15, fontWeight: "700" },
   footerNote: {
     color: "#829AB1",
     fontSize: 12,
