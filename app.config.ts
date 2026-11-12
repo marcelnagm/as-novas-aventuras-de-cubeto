@@ -29,7 +29,7 @@ const schemeFromBundleId = `manus${timestamp}`;
 const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "As Novas Aventuras de Cubeto",
-  appSlug: "novas-aventuras-cubeto",
+  appSlug: "marcel-nagm-01",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
   logoUrl: "",
@@ -56,10 +56,9 @@ const config: ExpoConfig = {
   },
   android: {
     adaptiveIcon: {
-      backgroundColor: "#E6F4FE",
+      backgroundColor: "#0AA7FD",
       foregroundImage: "./assets/images/android-icon-foreground.png",
       backgroundImage: "./assets/images/android-icon-background.png",
-      monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
@@ -128,7 +127,7 @@ const config: ExpoConfig = {
   },
   extra: {
     eas: {
-      projectId: "499e376c-ac42-40fd-a35e-0e13b06c8ccc",
+      projectId: "ce29c299-1717-414c-b75f-0abbc2cb4328",
     },
   },
 };

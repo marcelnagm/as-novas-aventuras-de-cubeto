@@ -3,27 +3,37 @@ import {
   useAudioPlayerStatus,
   setAudioModeAsync,
 } from "expo-audio";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 import { useKeepAwake } from "expo-keep-awake";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
   Image,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 
+import { MapLightbox } from "@/components/map-lightbox";
 import { ScreenContainer } from "@/components/screen-container";
+import { mapImages } from "@/data/maps";
 import { storyMaterials } from "@/data/materials";
 import { stories, type Story } from "@/data/stories";
-import { shareImageInBrowser } from "@/lib/share-material";
+import { shareImage } from "@/lib/share-material";
 
 const MAPS = [1, 2, 3, 4, 5];
+const AUTOPLAY_KEY = "cubeto:autoplay";
+const LAST_STORY_KEY = "cubeto:last-story";
+const CONTACT_EMAIL = "marcel.nagm@gmail.com";
+const PROJECT_GITHUB = "https://github.com/marcelnagm/as-novas-aventuras-de-cubeto";
 
 function triggerTap() {
   if (Platform.OS !== "web") {
@@ -34,6 +44,32 @@ function triggerTap() {
 export default function HomeScreen() {
   const [selectedMap, setSelectedMap] = useState<number | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [restored, setRestored] = useState(false);
+  const navigation = useNavigation();
+
+  // Ao abrir o app, retoma a última história lida.
+  useEffect(() => {
+    AsyncStorage.getItem(LAST_STORY_KEY)
+      .then((id) => {
+        const last = id ? stories.find((story) => story.id === id) : undefined;
+        if (last) setSelectedStory(last);
+      })
+      .catch(() => {})
+      .finally(() => setRestored(true));
+  }, []);
+
+  // Tocar em "Home" com uma história aberta volta ao catálogo.
+  useEffect(() => {
+    const unsubscribe = (navigation as any).addListener("tabPress", () => {
+      setSelectedStory(null);
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const openStory = (story: Story) => {
+    setSelectedStory(story);
+    AsyncStorage.setItem(LAST_STORY_KEY, story.id).catch(() => {});
+  };
 
   const visibleStories = useMemo(
     () =>
@@ -42,6 +78,10 @@ export default function HomeScreen() {
         : stories,
     [selectedMap],
   );
+
+  if (!restored) {
+    return <ScreenContainer className="bg-background" edges={["top", "left", "right"]} />;
+  }
 
   if (selectedStory) {
     return (
@@ -121,15 +161,54 @@ export default function HomeScreen() {
             index={index}
             onPress={() => {
               triggerTap();
-              setSelectedStory(item);
+              openStory(item);
             }}
           />
         )}
         ListFooterComponent={
-          <Text style={styles.footerNote}>Mais aventuras a caminho.</Text>
+          <View>
+            <ContactSection />
+            <Text style={styles.footerNote}>Mais aventuras a caminho.</Text>
+          </View>
         }
       />
     </ScreenContainer>
+  );
+}
+
+function ContactSection() {
+  const open = (url: string) => {
+    triggerTap();
+    Linking.openURL(url).catch(() => {
+      Alert.alert("Não foi possível abrir o link", url);
+    });
+  };
+
+  return (
+    <View style={styles.contactSection}>
+      <Text style={styles.sectionKicker}>CONTATO</Text>
+      <Text style={styles.contactTitle}>Fale com a gente</Text>
+      <Pressable
+        onPress={() => open(`mailto:${CONTACT_EMAIL}`)}
+        accessibilityRole="link"
+        accessibilityLabel={`Enviar e-mail para ${CONTACT_EMAIL}`}
+        style={({ pressed }) => [styles.contactRow, pressed && styles.pressed]}
+      >
+        <Text style={styles.contactLabel}>E-mail</Text>
+        <Text style={styles.contactValue}>{CONTACT_EMAIL}</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => open(PROJECT_GITHUB)}
+        accessibilityRole="link"
+        accessibilityLabel="Abrir o GitHub do projeto"
+        style={({ pressed }) => [styles.contactRow, pressed && styles.pressed]}
+      >
+        <Text style={styles.contactLabel}>GitHub do projeto</Text>
+        <Text style={styles.contactValue}>
+          github.com/marcelnagm/as-novas-aventuras-de-cubeto
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -206,6 +285,7 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
   useKeepAwake();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(true);
   const current = story.dialogues[currentIndex];
   const player = useAudioPlayer(current.audio);
   const status = useAudioPlayerStatus(player);
@@ -213,6 +293,21 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
   useEffect(() => {
     void setAudioModeAsync({ playsInSilentMode: true });
   }, []);
+
+  // Lembra a escolha do play automático entre histórias e aberturas do app.
+  useEffect(() => {
+    AsyncStorage.getItem(AUTOPLAY_KEY)
+      .then((value) => {
+        if (value === "off") setAutoPlay(false);
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleAutoPlay = (value: boolean) => {
+    triggerTap();
+    setAutoPlay(value);
+    AsyncStorage.setItem(AUTOPLAY_KEY, value ? "on" : "off").catch(() => {});
+  };
 
   useEffect(() => {
     player.pause();
@@ -225,9 +320,10 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
   useEffect(() => {
     if (!isPlaying || status.duration <= 0) return;
     if (status.currentTime >= status.duration - 0.12) {
-      if (currentIndex < story.dialogues.length - 1) {
+      if (autoPlay && currentIndex < story.dialogues.length - 1) {
         setCurrentIndex((value) => value + 1);
       } else {
+        // Play automático desligado (ou última fala): para ao fim da fala.
         setIsPlaying(false);
       }
     }
@@ -235,6 +331,7 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
     status.currentTime,
     status.duration,
     isPlaying,
+    autoPlay,
     currentIndex,
     story.dialogues.length,
   ]);
@@ -287,6 +384,9 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.playerContent}
         >
+          <MapPreview map={story.map} />
+          <StoryMaterial story={story} />
+
           <View
             style={[styles.storyPill, { backgroundColor: `${story.accent}18` }]}
           >
@@ -374,13 +474,31 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
             </Pressable>
           </View>
 
+          <View style={styles.autoPlayRow}>
+            <View style={styles.autoPlayTexts}>
+              <Text style={styles.autoPlayTitle}>Play automático</Text>
+              <Text style={styles.autoPlayHint}>
+                {autoPlay
+                  ? "Ligado: a próxima fala toca sozinha."
+                  : "Desligado: o áudio para ao fim de cada fala."}
+              </Text>
+            </View>
+            <Switch
+              value={autoPlay}
+              onValueChange={toggleAutoPlay}
+              accessibilityLabel="Play automático dos áudios"
+              trackColor={{ false: "#CBD5E1", true: story.accent }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
           <Text style={styles.sequenceHint}>
             {isPlaying
-              ? "A sequência avança sozinha ao terminar cada fala."
+              ? autoPlay
+                ? "A sequência avança sozinha ao terminar cada fala."
+                : "Ao terminar a fala, toque em Próxima para continuar."
               : "Dê play para ouvir e acompanhar a aventura."}
           </Text>
-
-          <StoryMaterial story={story} />
 
           <View style={styles.scriptSection}>
             <View style={styles.scriptHeadingRow}>
@@ -447,17 +565,61 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
   );
 }
 
+function MapPreview({ map }: { map: number }) {
+  const [open, setOpen] = useState(false);
+  const source = mapImages[map];
+
+  if (!source) return null;
+
+  const title = `Mapa ${map}`;
+  const openMap = () => {
+    triggerTap();
+    setOpen(true);
+  };
+
+  return (
+    <View style={styles.mapCard}>
+      <Pressable
+        onPress={openMap}
+        accessibilityRole="button"
+        accessibilityLabel={`Ampliar ${title}`}
+        style={({ pressed }) => [styles.mapImageBox, pressed && styles.pressed]}
+      >
+        <Image source={source} style={styles.mapImage} resizeMode="cover" />
+      </Pressable>
+      <View style={styles.mapFooter}>
+        <Text style={styles.mapHint}>Toque para ampliar e explorar</Text>
+        <Pressable
+          onPress={openMap}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.mapOpenButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.mapOpenText}>Abrir</Text>
+        </Pressable>
+      </View>
+      <MapLightbox
+        visible={open}
+        onClose={() => setOpen(false)}
+        source={source}
+        title={title}
+      />
+    </View>
+  );
+}
+
+type MaterialKey = "personagem" | "acessorios";
+
 function StoryMaterial({ story }: { story: Story }) {
   const material = storyMaterials[story.id];
-  const [sharing, setSharing] = useState<string | null>(null);
+  const [sharing, setSharing] = useState<MaterialKey | null>(null);
 
-  if (!material) return null;
-
-  const share = async (key: "personagem" | "acessorios", title: string) => {
+  const share = async (key: MaterialKey, title: string) => {
+    const source = material?.[key];
+    if (!source) return;
     triggerTap();
     setSharing(key);
     try {
-      await shareImageInBrowser(material[key], `${story.title} - ${title}`);
+      await shareImage(source, `${story.title} - ${title}`);
     } catch {
       Alert.alert(
         "Não foi possível compartilhar",
@@ -468,17 +630,9 @@ function StoryMaterial({ story }: { story: Story }) {
     }
   };
 
-  const items = [
-    {
-      key: "personagem" as const,
-      label: "Personagem",
-      source: material.personagem,
-    },
-    {
-      key: "acessorios" as const,
-      label: "Acessórios",
-      source: material.acessorios,
-    },
+  const items: { key: MaterialKey; label: string }[] = [
+    { key: "personagem", label: "Personagem" },
+    { key: "acessorios", label: "Acessórios" },
   ];
 
   return (
@@ -486,31 +640,40 @@ function StoryMaterial({ story }: { story: Story }) {
       <Text style={styles.sectionKicker}>MATERIAL DA HISTÓRIA</Text>
       <Text style={styles.materialTitle}>Personagem e acessórios</Text>
       <View style={styles.materialRow}>
-        {items.map((item) => (
-          <View key={item.key} style={styles.materialCard}>
-            <View style={styles.materialImageBox}>
-              <Image
-                source={item.source}
-                style={styles.materialImage}
-                resizeMode="contain"
-              />
+        {items.map((item) => {
+          const source = material?.[item.key];
+          const busy = sharing !== null;
+          return (
+            <View key={item.key} style={styles.materialCard}>
+              <View style={styles.materialImageBox}>
+                {source ? (
+                  <Image
+                    source={source}
+                    style={styles.materialImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text style={styles.materialEmpty}>Imagem em breve</Text>
+                )}
+              </View>
+              <Text style={styles.materialLabel}>{item.label}</Text>
+              <Pressable
+                onPress={() => share(item.key, item.label)}
+                disabled={!source || busy}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.shareButton,
+                  pressed && styles.pressed,
+                  (!source || busy) && styles.disabled,
+                ]}
+              >
+                <Text style={styles.shareButtonText}>
+                  {sharing === item.key ? "Abrindo..." : "Compartilhar"}
+                </Text>
+              </Pressable>
             </View>
-            <Text style={styles.materialLabel}>{item.label}</Text>
-            <Pressable
-              onPress={() => share(item.key, item.label)}
-              disabled={sharing !== null}
-              style={({ pressed }) => [
-                styles.shareButton,
-                pressed && styles.pressed,
-                sharing !== null && styles.disabled,
-              ]}
-            >
-              <Text style={styles.shareButtonText}>
-                {sharing === item.key ? "Abrindo..." : "Compartilhar"}
-              </Text>
-            </Pressable>
-          </View>
-        ))}
+          );
+        })}
       </View>
     </View>
   );
@@ -667,6 +830,31 @@ const styles = StyleSheet.create({
   },
   cardCharacter: { color: "#334E68", fontSize: 12, fontWeight: "700", flex: 1 },
   cardCount: { color: "#829AB1", fontSize: 12, fontWeight: "700" },
+  contactSection: { marginTop: 32 },
+  contactTitle: {
+    color: "#102A43",
+    fontSize: 22,
+    fontWeight: "800",
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  contactRow: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#D9E2EC",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    marginBottom: 10,
+  },
+  contactLabel: {
+    color: "#627D98",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    marginBottom: 3,
+  },
+  contactValue: { color: "#0B3954", fontSize: 15, fontWeight: "700" },
   footerNote: {
     color: "#829AB1",
     fontSize: 12,
@@ -819,6 +1007,55 @@ const styles = StyleSheet.create({
     marginTop: 14,
     lineHeight: 18,
   },
+  autoPlayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 16,
+    backgroundColor: "#F5FAFC",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E6EEF4",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  autoPlayTexts: { flex: 1 },
+  autoPlayTitle: { color: "#102A43", fontSize: 15, fontWeight: "800" },
+  autoPlayHint: { color: "#627D98", fontSize: 12, fontWeight: "600", marginTop: 2 },
+  mapCard: {
+    backgroundColor: "#F5FAFC",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#E6EEF4",
+    padding: 12,
+    marginBottom: 20,
+  },
+  mapImageBox: {
+    width: "100%",
+    aspectRatio: 1.4,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#DCEBF2",
+  },
+  mapImage: { width: "100%", height: "100%" },
+  mapFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 10,
+  },
+  mapHint: { flex: 1, color: "#102A43", fontSize: 14, fontWeight: "700" },
+  mapOpenButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#0B3954",
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  mapOpenText: { color: "#0B3954", fontSize: 14, fontWeight: "800" },
+  materialEmpty: { color: "#829AB1", fontSize: 13, fontWeight: "700", textAlign: "center" },
   materialSection: {
     marginTop: 28,
     backgroundColor: "#F5FAFC",
