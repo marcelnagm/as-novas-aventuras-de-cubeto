@@ -1,66 +1,79 @@
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
-import * as WebBrowser from "expo-web-browser";
-import { Linking, Platform } from "react-native";
+import * as Sharing from "expo-sharing";
+import { Platform } from "react-native";
 
-async function toBase64(moduleId: number): Promise<string> {
+const MIME_TYPE = "image/jpeg";
+
+function toFileName(title: string) {
+  const base = title
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+  return `${base || "material"}.jpg`;
+}
+
+function isAbort(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+async function shareOnWeb(uri: string, title: string): Promise<void> {
+  const nav = typeof navigator !== "undefined" ? navigator : undefined;
+
+  // Menu de compartilhar do sistema, enviando o arquivo da própria imagem.
+  if (nav?.share && nav.canShare) {
+    try {
+      const blob = await (await fetch(uri)).blob();
+      const file = new File([blob], toFileName(title), { type: MIME_TYPE });
+      if (nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], title });
+        return;
+      }
+    } catch (error) {
+      if (isAbort(error)) return;
+    }
+  }
+
+  // Sem suporte a arquivos: compartilha o link da imagem, se possível.
+  if (await Sharing.isAvailableAsync()) {
+    try {
+      await Sharing.shareAsync(uri, { dialogTitle: title, mimeType: MIME_TYPE });
+      return;
+    } catch (error) {
+      if (isAbort(error)) return;
+    }
+  }
+
+  // Último recurso: abre a imagem em si (sem HTML), para imprimir ou salvar.
+  window.open(uri, "_blank");
+}
+
+/**
+ * Compartilhar: abre o menu de compartilhar/imprimir do sistema com a própria imagem.
+ */
+export async function shareImage(moduleId: number, title: string): Promise<void> {
   const asset = Asset.fromModule(moduleId);
   await asset.downloadAsync();
 
   if (Platform.OS === "web") {
-    const blob = await (await fetch(asset.uri)).blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(String(reader.result).split(",")[1] ?? "");
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  return FileSystem.readAsStringAsync(asset.localUri ?? asset.uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-}
-
-function buildHtml(title: string, base64: string) {
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(title)}</title>
-<style>
-  html,body{margin:0;background:#fff;}
-  body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
-  img{max-width:100%;height:auto;display:block;}
-</style>
-</head>
-<body>
-<img src="data:image/jpeg;base64,${base64}" alt="${escapeHtml(title)}">
-</body>
-</html>`;
-}
-
-/**
- * Compartilhar: monta um HTML com a imagem em base64 e abre no navegador.
- */
-export async function shareImageInBrowser(moduleId: number, title: string): Promise<void> {
-  const html = buildHtml(title, await toBase64(moduleId));
-
-  if (Platform.OS === "web") {
-    const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
-    window.open(url, "_blank");
+    await shareOnWeb(asset.localUri ?? asset.uri, title);
     return;
   }
 
-  const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-  try {
-    await WebBrowser.openBrowserAsync(dataUrl);
-  } catch {
-    await Linking.openURL(dataUrl);
+  if (!(await Sharing.isAvailableAsync())) {
+    throw new Error("Compartilhamento indisponível neste dispositivo.");
   }
+
+  const source = asset.localUri ?? asset.uri;
+  const target = `${FileSystem.cacheDirectory}${toFileName(title)}`;
+  await FileSystem.deleteAsync(target, { idempotent: true });
+  await FileSystem.copyAsync({ from: source, to: target });
+
+  await Sharing.shareAsync(target, {
+    mimeType: MIME_TYPE,
+    UTI: "public.jpeg",
+    dialogTitle: title,
+  });
 }

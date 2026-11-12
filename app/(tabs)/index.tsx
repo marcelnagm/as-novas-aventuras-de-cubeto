@@ -25,7 +25,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { mapImages } from "@/data/maps";
 import { storyMaterials } from "@/data/materials";
 import { stories, type Story } from "@/data/stories";
-import { shareImageInBrowser } from "@/lib/share-material";
+import { shareImage } from "@/lib/share-material";
 
 const MAPS = [1, 2, 3, 4, 5];
 const AUTOPLAY_KEY = "cubeto:autoplay";
@@ -545,7 +545,7 @@ function StoryMaterial({ story }: { story: Story }) {
     triggerTap();
     setSharing(key);
     try {
-      await shareImageInBrowser(source, `${story.title} - ${title}`);
+      await shareImage(source, `${story.title} - ${title}`);
     } catch {
       Alert.alert(
         "Não foi possível compartilhar",
