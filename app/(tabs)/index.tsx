@@ -4,6 +4,7 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 import { useKeepAwake } from "expo-keep-awake";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -30,6 +31,7 @@ import { shareImage } from "@/lib/share-material";
 
 const MAPS = [1, 2, 3, 4, 5];
 const AUTOPLAY_KEY = "cubeto:autoplay";
+const LAST_STORY_KEY = "cubeto:last-story";
 const CONTACT_EMAIL = "marcel.nagm@gmail.com";
 const PROJECT_GITHUB = "https://github.com/marcelnagm/as-novas-aventuras-de-cubeto";
 
@@ -42,6 +44,32 @@ function triggerTap() {
 export default function HomeScreen() {
   const [selectedMap, setSelectedMap] = useState<number | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [restored, setRestored] = useState(false);
+  const navigation = useNavigation();
+
+  // Ao abrir o app, retoma a última história lida.
+  useEffect(() => {
+    AsyncStorage.getItem(LAST_STORY_KEY)
+      .then((id) => {
+        const last = id ? stories.find((story) => story.id === id) : undefined;
+        if (last) setSelectedStory(last);
+      })
+      .catch(() => {})
+      .finally(() => setRestored(true));
+  }, []);
+
+  // Tocar em "Home" com uma história aberta volta ao catálogo.
+  useEffect(() => {
+    const unsubscribe = (navigation as any).addListener("tabPress", () => {
+      setSelectedStory(null);
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const openStory = (story: Story) => {
+    setSelectedStory(story);
+    AsyncStorage.setItem(LAST_STORY_KEY, story.id).catch(() => {});
+  };
 
   const visibleStories = useMemo(
     () =>
@@ -50,6 +78,10 @@ export default function HomeScreen() {
         : stories,
     [selectedMap],
   );
+
+  if (!restored) {
+    return <ScreenContainer className="bg-background" edges={["top", "left", "right"]} />;
+  }
 
   if (selectedStory) {
     return (
@@ -129,7 +161,7 @@ export default function HomeScreen() {
             index={index}
             onPress={() => {
               triggerTap();
-              setSelectedStory(item);
+              openStory(item);
             }}
           />
         )}
