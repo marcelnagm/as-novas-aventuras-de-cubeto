@@ -3,6 +3,7 @@ import {
   useAudioPlayerStatus,
   setAudioModeAsync,
 } from "expo-audio";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useKeepAwake } from "expo-keep-awake";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -26,6 +28,7 @@ import { stories, type Story } from "@/data/stories";
 import { shareImageInBrowser } from "@/lib/share-material";
 
 const MAPS = [1, 2, 3, 4, 5];
+const AUTOPLAY_KEY = "cubeto:autoplay";
 
 function triggerTap() {
   if (Platform.OS !== "web") {
@@ -208,6 +211,7 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
   useKeepAwake();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(true);
   const current = story.dialogues[currentIndex];
   const player = useAudioPlayer(current.audio);
   const status = useAudioPlayerStatus(player);
@@ -215,6 +219,21 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
   useEffect(() => {
     void setAudioModeAsync({ playsInSilentMode: true });
   }, []);
+
+  // Lembra a escolha do play automático entre histórias e aberturas do app.
+  useEffect(() => {
+    AsyncStorage.getItem(AUTOPLAY_KEY)
+      .then((value) => {
+        if (value === "off") setAutoPlay(false);
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleAutoPlay = (value: boolean) => {
+    triggerTap();
+    setAutoPlay(value);
+    AsyncStorage.setItem(AUTOPLAY_KEY, value ? "on" : "off").catch(() => {});
+  };
 
   useEffect(() => {
     player.pause();
@@ -227,9 +246,10 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
   useEffect(() => {
     if (!isPlaying || status.duration <= 0) return;
     if (status.currentTime >= status.duration - 0.12) {
-      if (currentIndex < story.dialogues.length - 1) {
+      if (autoPlay && currentIndex < story.dialogues.length - 1) {
         setCurrentIndex((value) => value + 1);
       } else {
+        // Play automático desligado (ou última fala): para ao fim da fala.
         setIsPlaying(false);
       }
     }
@@ -237,6 +257,7 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
     status.currentTime,
     status.duration,
     isPlaying,
+    autoPlay,
     currentIndex,
     story.dialogues.length,
   ]);
@@ -379,9 +400,29 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
             </Pressable>
           </View>
 
+          <View style={styles.autoPlayRow}>
+            <View style={styles.autoPlayTexts}>
+              <Text style={styles.autoPlayTitle}>Play automático</Text>
+              <Text style={styles.autoPlayHint}>
+                {autoPlay
+                  ? "Ligado: a próxima fala toca sozinha."
+                  : "Desligado: o áudio para ao fim de cada fala."}
+              </Text>
+            </View>
+            <Switch
+              value={autoPlay}
+              onValueChange={toggleAutoPlay}
+              accessibilityLabel="Play automático dos áudios"
+              trackColor={{ false: "#CBD5E1", true: story.accent }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
           <Text style={styles.sequenceHint}>
             {isPlaying
-              ? "A sequência avança sozinha ao terminar cada fala."
+              ? autoPlay
+                ? "A sequência avança sozinha ao terminar cada fala."
+                : "Ao terminar a fala, toque em Próxima para continuar."
               : "Dê play para ouvir e acompanhar a aventura."}
           </Text>
 
@@ -867,6 +908,22 @@ const styles = StyleSheet.create({
     marginTop: 14,
     lineHeight: 18,
   },
+  autoPlayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 16,
+    backgroundColor: "#F5FAFC",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E6EEF4",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  autoPlayTexts: { flex: 1 },
+  autoPlayTitle: { color: "#102A43", fontSize: 15, fontWeight: "800" },
+  autoPlayHint: { color: "#627D98", fontSize: 12, fontWeight: "600", marginTop: 2 },
   mapCard: {
     backgroundColor: "#F5FAFC",
     borderRadius: 24,
