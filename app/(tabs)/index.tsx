@@ -72,9 +72,9 @@ export default function HomeScreen() {
                 o Primo Bot.
               </Text>
               <View style={styles.statsRow}>
-                <Stat value="12" label="histórias" />
-                <Stat value="3" label="mapas" />
-                <Stat value="113" label="falas" />
+                <Stat value="20" label="histórias" />
+                <Stat value="5" label="mapas" />
+                <Stat value="173" label="falas" />
               </View>
             </View>
 

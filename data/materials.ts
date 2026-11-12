@@ -21,6 +21,14 @@ export const storyMaterials: Record<string, StoryMaterial> = {
     personagem: require("../assets/material/m2h2-personagem.jpg"),
     acessorios: require("../assets/material/m2h2-acessorios.jpg"),
   },
+  m2h3: {
+    personagem: require("../assets/material/m2h3-personagem.jpg"),
+    acessorios: require("../assets/material/m2h3-acessorios.jpg"),
+  },
+  m2h4: {
+    personagem: require("../assets/material/m2h4-personagem.jpg"),
+    acessorios: require("../assets/material/m2h4-acessorios.jpg"),
+  },
   m3h1: {
     personagem: require("../assets/material/m3h1-personagem.jpg"),
     acessorios: require("../assets/material/m3h1-acessorios.jpg"),
