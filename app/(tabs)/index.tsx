@@ -13,7 +13,6 @@ import {
   Image,
   Linking,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -22,6 +21,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 
+import { BouncyPressable } from "@/components/bouncy-pressable";
 import { MapLightbox } from "@/components/map-lightbox";
 import { ScreenContainer } from "@/components/screen-container";
 import { mapImages } from "@/data/maps";
@@ -32,6 +32,8 @@ import { shareImage } from "@/lib/share-material";
 const MAPS = [1, 2, 3, 4, 5];
 const AUTOPLAY_KEY = "cubeto:autoplay";
 const LAST_STORY_KEY = "cubeto:last-story";
+const SELECTED_MAP_KEY = "cubeto:selected-map";
+const RAINBOW = ["#FF595E", "#FF924C", "#FFCA3A", "#8AC926", "#1982C4", "#6A4C93"];
 const CONTACT_EMAIL = "marcel.nagm@gmail.com";
 const PROJECT_GITHUB = "https://github.com/marcelnagm/as-novas-aventuras-de-cubeto";
 
@@ -47,16 +49,29 @@ export default function HomeScreen() {
   const [restored, setRestored] = useState(false);
   const navigation = useNavigation();
 
-  // Ao abrir o app, retoma a última história lida.
+  // Ao abrir o app, retoma a última história lida e o mapa que estava selecionado.
   useEffect(() => {
-    AsyncStorage.getItem(LAST_STORY_KEY)
-      .then((id) => {
+    Promise.all([
+      AsyncStorage.getItem(LAST_STORY_KEY),
+      AsyncStorage.getItem(SELECTED_MAP_KEY),
+    ])
+      .then(([id, map]) => {
         const last = id ? stories.find((story) => story.id === id) : undefined;
         if (last) setSelectedStory(last);
+        const savedMap = Number(map);
+        if (MAPS.includes(savedMap)) setSelectedMap(savedMap);
       })
       .catch(() => {})
       .finally(() => setRestored(true));
   }, []);
+
+  const selectMap = (map: number | null) => {
+    setSelectedMap(map);
+    AsyncStorage.setItem(
+      SELECTED_MAP_KEY,
+      map === null ? "all" : String(map),
+    ).catch(() => {});
+  };
 
   // Tocar em "Home" com uma história aberta volta ao catálogo.
   useEffect(() => {
@@ -80,7 +95,13 @@ export default function HomeScreen() {
   );
 
   if (!restored) {
-    return <ScreenContainer className="bg-background" edges={["top", "left", "right"]} />;
+    return (
+      <ScreenContainer
+        className="bg-[#E8F6FF]"
+        style={{ backgroundColor: "#E8F6FF" }}
+        edges={["top", "left", "right"]}
+      />
+    );
   }
 
   if (selectedStory) {
@@ -93,7 +114,11 @@ export default function HomeScreen() {
   }
 
   return (
-    <ScreenContainer className="bg-background" edges={["top", "left", "right"]}>
+    <ScreenContainer
+      className="bg-[#E8F6FF]"
+      style={{ backgroundColor: "#E8F6FF" }}
+      edges={["top", "left", "right"]}
+    >
       <FlatList
         data={visibleStories}
         keyExtractor={(story) => story.id}
@@ -102,6 +127,8 @@ export default function HomeScreen() {
         ListHeaderComponent={
           <View>
             <View style={styles.hero}>
+              <View style={styles.heroBlobA} />
+              <View style={styles.heroBlobB} />
               <View style={styles.heroBadge}>
                 <Text style={styles.heroBadgeText}>APP DE LEITURA E ÁUDIO</Text>
               </View>
@@ -115,6 +142,11 @@ export default function HomeScreen() {
                 <Stat value="20" label="histórias" />
                 <Stat value="5" label="mapas" />
                 <Stat value="173" label="falas" />
+              </View>
+              <View style={styles.rainbow}>
+                {RAINBOW.map((color) => (
+                  <View key={color} style={{ flex: 1, backgroundColor: color }} />
+                ))}
               </View>
             </View>
 
@@ -138,7 +170,7 @@ export default function HomeScreen() {
                 active={selectedMap === null}
                 onPress={() => {
                   triggerTap();
-                  setSelectedMap(null);
+                  selectMap(null);
                 }}
               />
               {MAPS.map((map) => (
@@ -148,7 +180,7 @@ export default function HomeScreen() {
                   active={selectedMap === map}
                   onPress={() => {
                     triggerTap();
-                    setSelectedMap(map);
+                    selectMap(map);
                   }}
                 />
               ))}
@@ -188,7 +220,7 @@ function ContactSection() {
     <View style={styles.contactSection}>
       <Text style={styles.sectionKicker}>CONTATO</Text>
       <Text style={styles.contactTitle}>Fale com a gente</Text>
-      <Pressable
+      <BouncyPressable
         onPress={() => open(`mailto:${CONTACT_EMAIL}`)}
         accessibilityRole="link"
         accessibilityLabel={`Enviar e-mail para ${CONTACT_EMAIL}`}
@@ -196,8 +228,8 @@ function ContactSection() {
       >
         <Text style={styles.contactLabel}>E-mail</Text>
         <Text style={styles.contactValue}>{CONTACT_EMAIL}</Text>
-      </Pressable>
-      <Pressable
+      </BouncyPressable>
+      <BouncyPressable
         onPress={() => open(PROJECT_GITHUB)}
         accessibilityRole="link"
         accessibilityLabel="Abrir o GitHub do projeto"
@@ -207,7 +239,7 @@ function ContactSection() {
         <Text style={styles.contactValue}>
           github.com/marcelnagm/as-novas-aventuras-de-cubeto
         </Text>
-      </Pressable>
+      </BouncyPressable>
     </View>
   );
 }
@@ -231,7 +263,7 @@ function FilterChip({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <BouncyPressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.filterChip,
@@ -242,7 +274,7 @@ function FilterChip({
       <Text style={[styles.filterText, active && styles.filterTextActive]}>
         {label}
       </Text>
-    </Pressable>
+    </BouncyPressable>
   );
 }
 
@@ -256,7 +288,7 @@ function StoryCard({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <BouncyPressable
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
@@ -277,7 +309,7 @@ function StoryCard({
           <Text style={styles.cardCount}>{story.dialogues.length} falas</Text>
         </View>
       </View>
-    </Pressable>
+    </BouncyPressable>
   );
 }
 
@@ -364,10 +396,14 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
   };
 
   return (
-    <ScreenContainer className="bg-background" edges={["top", "left", "right"]}>
+    <ScreenContainer
+      className="bg-[#E8F6FF]"
+      style={{ backgroundColor: "#E8F6FF" }}
+      edges={["top", "left", "right"]}
+    >
       <View style={styles.playerScreen}>
         <View style={styles.playerHeader}>
-          <Pressable
+          <BouncyPressable
             onPress={onBack}
             style={({ pressed }) => [
               styles.backButton,
@@ -376,7 +412,7 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
           >
             <Text style={styles.backArrow}>‹</Text>
             <Text style={styles.backText}>Histórias</Text>
-          </Pressable>
+          </BouncyPressable>
           <Text style={styles.playerMap}>MAPA {story.map}</Text>
         </View>
 
@@ -433,7 +469,7 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
           </View>
 
           <View style={styles.controlsRow}>
-            <Pressable
+            <BouncyPressable
               onPress={() => goTo(currentIndex - 1)}
               disabled={currentIndex === 0}
               style={({ pressed }) => [
@@ -444,8 +480,8 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
             >
               <Text style={styles.controlIcon}>‹</Text>
               <Text style={styles.controlLabel}>Anterior</Text>
-            </Pressable>
-            <Pressable
+            </BouncyPressable>
+            <BouncyPressable
               onPress={isPlaying ? pauseCurrent : playCurrent}
               style={({ pressed }) => [
                 styles.mainControl,
@@ -459,8 +495,8 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
               <Text style={styles.mainControlLabel}>
                 {isPlaying ? "Pausar" : "Ouvir fala"}
               </Text>
-            </Pressable>
-            <Pressable
+            </BouncyPressable>
+            <BouncyPressable
               onPress={() => goTo(currentIndex + 1)}
               disabled={currentIndex === story.dialogues.length - 1}
               style={({ pressed }) => [
@@ -471,7 +507,7 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
             >
               <Text style={styles.controlIcon}>›</Text>
               <Text style={styles.controlLabel}>Próxima</Text>
-            </Pressable>
+            </BouncyPressable>
           </View>
 
           <View style={styles.autoPlayRow}>
@@ -511,7 +547,7 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
               </Text>
             </View>
             {story.dialogues.map((dialogue, index) => (
-              <Pressable
+              <BouncyPressable
                 key={dialogue.id}
                 onPress={() => goTo(index)}
                 style={({ pressed }) => [
@@ -556,7 +592,7 @@ function StoryPlayer({ story, onBack }: { story: Story; onBack: () => void }) {
                     ●
                   </Text>
                 ) : null}
-              </Pressable>
+              </BouncyPressable>
             ))}
           </View>
         </ScrollView>
@@ -579,23 +615,23 @@ function MapPreview({ map }: { map: number }) {
 
   return (
     <View style={styles.mapCard}>
-      <Pressable
+      <BouncyPressable
         onPress={openMap}
         accessibilityRole="button"
         accessibilityLabel={`Ampliar ${title}`}
         style={({ pressed }) => [styles.mapImageBox, pressed && styles.pressed]}
       >
         <Image source={source} style={styles.mapImage} resizeMode="cover" />
-      </Pressable>
+      </BouncyPressable>
       <View style={styles.mapFooter}>
         <Text style={styles.mapHint}>Toque para ampliar e explorar</Text>
-        <Pressable
+        <BouncyPressable
           onPress={openMap}
           accessibilityRole="button"
           style={({ pressed }) => [styles.mapOpenButton, pressed && styles.pressed]}
         >
           <Text style={styles.mapOpenText}>Abrir</Text>
-        </Pressable>
+        </BouncyPressable>
       </View>
       <MapLightbox
         visible={open}
@@ -657,7 +693,7 @@ function StoryMaterial({ story }: { story: Story }) {
                 )}
               </View>
               <Text style={styles.materialLabel}>{item.label}</Text>
-              <Pressable
+              <BouncyPressable
                 onPress={() => share(item.key, item.label)}
                 disabled={!source || busy}
                 accessibilityRole="button"
@@ -670,7 +706,7 @@ function StoryMaterial({ story }: { story: Story }) {
                 <Text style={styles.shareButtonText}>
                   {sharing === item.key ? "Abrindo..." : "Compartilhar"}
                 </Text>
-              </Pressable>
+              </BouncyPressable>
             </View>
           );
         })}
@@ -688,59 +724,102 @@ function formatTime(value: number) {
 const styles = StyleSheet.create({
   catalogContent: { padding: 20, paddingBottom: 44 },
   hero: {
-    backgroundColor: "#0B3954",
-    borderRadius: 28,
+    backgroundColor: "#0AA7FD",
+    borderRadius: 34,
     padding: 24,
     paddingTop: 22,
-    marginBottom: 28,
+    paddingBottom: 40,
+    marginBottom: 26,
     overflow: "hidden",
+  },
+  heroBlobA: {
+    position: "absolute",
+    top: -34,
+    right: -26,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "#19D5BC",
+    opacity: 0.55,
+  },
+  heroBlobB: {
+    position: "absolute",
+    top: 70,
+    right: 30,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: "#FFCA3A",
+    transform: [{ rotate: "18deg" }],
+    opacity: 0.9,
+  },
+  rainbow: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 12,
+    flexDirection: "row",
   },
   heroBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#8BD3DD",
+    backgroundColor: "#FFE066",
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginBottom: 20,
   },
   heroBadgeText: {
     color: "#0B3954",
-    fontSize: 10,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "900",
     letterSpacing: 1.1,
   },
   eyebrow: {
-    color: "#8BD3DD",
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 2.2,
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 2.4,
   },
   heroTitle: {
     color: "#FFFFFF",
-    fontSize: 38,
-    lineHeight: 43,
+    fontSize: 46,
+    lineHeight: 50,
     fontWeight: "900",
-    letterSpacing: -1.1,
+    letterSpacing: -1,
     marginTop: 2,
   },
   heroSubtitle: {
-    color: "#D8F3DC",
-    fontSize: 15,
-    lineHeight: 22,
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 24,
     marginTop: 12,
-    maxWidth: 300,
+    maxWidth: 310,
+    fontWeight: "600",
   },
   statsRow: {
     flexDirection: "row",
-    gap: 28,
-    marginTop: 24,
-    paddingTop: 17,
-    borderTopWidth: 1,
-    borderTopColor: "#39657A",
+    gap: 10,
+    marginTop: 22,
   },
-  stat: { minWidth: 58 },
-  statValue: { color: "#FFFFFF", fontSize: 23, fontWeight: "800" },
-  statLabel: { color: "#A8DADC", fontSize: 12, marginTop: 2 },
+  stat: {
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minWidth: 64,
+  },
+  statValue: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+  statLabel: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 1,
+  },
   sectionHeading: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -748,103 +827,133 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionKicker: {
-    color: "#0E7490",
-    fontSize: 11,
+    color: "#0A7EC2",
+    fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1.4,
   },
   sectionTitle: {
-    color: "#102A43",
-    fontSize: 23,
-    fontWeight: "800",
+    color: "#0B2A4A",
+    fontSize: 26,
+    fontWeight: "900",
     marginTop: 3,
     letterSpacing: -0.4,
   },
   countLabel: {
-    color: "#829AB1",
-    fontSize: 12,
-    fontWeight: "700",
+    color: "#4A7BA6",
+    fontSize: 13,
+    fontWeight: "800",
     marginBottom: 3,
   },
   filters: { gap: 8, paddingBottom: 18 },
   filterChip: {
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#D9E2EC",
-    paddingHorizontal: 17,
-    paddingVertical: 10,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderColor: "#BFE3F8",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    minHeight: 50,
+    justifyContent: "center",
     backgroundColor: "#FFFFFF",
   },
-  filterChipActive: { backgroundColor: "#0E7490", borderColor: "#0E7490" },
-  filterText: { color: "#486581", fontWeight: "700", fontSize: 13 },
+  filterChipActive: {
+    backgroundColor: "#0AA7FD",
+    borderColor: "#0780C4",
+  },
+  filterText: {
+    color: "#2F6690",
+    fontWeight: "900",
+    fontSize: 15,
+  },
   filterTextActive: { color: "#FFFFFF" },
   card: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E6EEF4",
-    shadowColor: "#102A43",
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    borderRadius: 26,
+    marginBottom: 14,
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    borderColor: "#BFE3F8",
     overflow: "hidden",
   },
   cardPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
-  cardAccent: { width: 7 },
-  cardBody: { flex: 1, padding: 16 },
+  cardAccent: {
+    width: 12,
+  },
+  cardBody: {
+    flex: 1,
+    padding: 18,
+  },
   cardTopline: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   cardMap: {
-    color: "#829AB1",
-    fontSize: 10,
+    color: "#4A7BA6",
+    fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.1,
   },
   playDot: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
-  playDotText: { color: "#FFFFFF", fontSize: 12, marginLeft: 2 },
-  cardTitle: {
-    color: "#102A43",
-    fontSize: 18,
-    lineHeight: 23,
-    fontWeight: "800",
-    marginTop: 11,
+  playDotText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    marginLeft: 3,
   },
-  cardSubtitle: { color: "#627D98", fontSize: 13, marginTop: 4 },
+  cardTitle: {
+    color: "#0B2A4A",
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: "900",
+    marginTop: 10,
+  },
+  cardSubtitle: {
+    color: "#486581",
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
   cardMetaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 15,
   },
-  cardCharacter: { color: "#334E68", fontSize: 12, fontWeight: "700", flex: 1 },
-  cardCount: { color: "#829AB1", fontSize: 12, fontWeight: "700" },
+  cardCharacter: {
+    color: "#0A7EC2",
+    fontSize: 13,
+    fontWeight: "800",
+    flex: 1,
+  },
+  cardCount: {
+    color: "#4A7BA6",
+    fontSize: 13,
+    fontWeight: "800",
+  },
   contactSection: { marginTop: 32 },
   contactTitle: {
-    color: "#102A43",
-    fontSize: 22,
-    fontWeight: "800",
+    color: "#0B2A4A",
+    fontSize: 24,
+    fontWeight: "900",
     marginTop: 2,
     marginBottom: 12,
   },
   contactRow: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#D9E2EC",
+    borderRadius: 20,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderColor: "#BFE3F8",
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     marginBottom: 10,
   },
   contactLabel: {
@@ -856,8 +965,9 @@ const styles = StyleSheet.create({
   },
   contactValue: { color: "#0B3954", fontSize: 15, fontWeight: "700" },
   footerNote: {
-    color: "#829AB1",
-    fontSize: 12,
+    color: "#4A7BA6",
+    fontSize: 13,
+    fontWeight: "700",
     textAlign: "center",
     marginTop: 12,
     marginBottom: 16,
@@ -874,16 +984,37 @@ const styles = StyleSheet.create({
   backButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 6,
-    paddingRight: 10,
+    minHeight: 48,
+    paddingLeft: 10,
+    paddingRight: 18,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderColor: "#BFE3F8",
+    backgroundColor: "#FFFFFF",
   },
-  backArrow: { color: "#0E7490", fontSize: 32, lineHeight: 28, marginRight: 4 },
-  backText: { color: "#0E7490", fontWeight: "800", fontSize: 14 },
-  playerMap: {
-    color: "#829AB1",
+  backArrow: {
+    color: "#0A7EC2",
+    fontSize: 34,
+    lineHeight: 34,
+    marginRight: 6,
+    marginTop: -3,
+  },
+  backText: {
+    color: "#0A7EC2",
     fontWeight: "900",
-    fontSize: 11,
+    fontSize: 16,
+  },
+  playerMap: {
+    color: "#0A7EC2",
+    fontWeight: "900",
+    fontSize: 12,
     letterSpacing: 1.2,
+    backgroundColor: "#FFE066",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    overflow: "hidden",
   },
   playerContent: { padding: 20, paddingTop: 6, paddingBottom: 38 },
   storyPill: {
@@ -897,31 +1028,27 @@ const styles = StyleSheet.create({
   storyPillDot: { width: 7, height: 7, borderRadius: 4, marginRight: 7 },
   storyPillText: { fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
   playerTitle: {
-    color: "#102A43",
-    fontSize: 31,
-    lineHeight: 36,
+    color: "#0B2A4A",
+    fontSize: 33,
+    lineHeight: 38,
     fontWeight: "900",
     marginTop: 13,
     letterSpacing: -0.7,
   },
   playerSubtitle: {
-    color: "#627D98",
-    fontSize: 15,
+    color: "#486581",
+    fontSize: 16,
     marginTop: 7,
     marginBottom: 22,
   },
   dialogueCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#E6EEF4",
-    borderTopWidth: 5,
-    padding: 20,
-    shadowColor: "#102A43",
-    shadowOpacity: 0.07,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: "#BFE3F8",
+    borderTopWidth: 9,
+    borderBottomWidth: 5,
+    padding: 22,
   },
   dialogueHeader: {
     flexDirection: "row",
@@ -929,75 +1056,100 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   dialogueStep: {
-    color: "#829AB1",
-    fontSize: 11,
+    color: "#4A7BA6",
+    fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1.2,
   },
   dialogueTotal: {
-    color: "#9FB3C8",
-    fontSize: 11,
+    color: "#7FA7C9",
+    fontSize: 12,
     fontWeight: "800",
     letterSpacing: 1,
   },
-  speaker: { fontSize: 18, fontWeight: "900", marginTop: 17 },
+  speaker: {
+    fontSize: 21,
+    fontWeight: "900",
+    marginTop: 16,
+  },
   dialogueText: {
-    color: "#243B53",
-    fontSize: 20,
-    lineHeight: 30,
-    fontWeight: "600",
+    color: "#102A43",
+    fontSize: 22,
+    lineHeight: 34,
+    fontWeight: "700",
     marginTop: 8,
   },
   progressTrack: {
-    height: 5,
-    backgroundColor: "#E6EEF4",
-    borderRadius: 3,
+    height: 14,
+    backgroundColor: "#D9EEFB",
+    borderRadius: 7,
     marginTop: 25,
     overflow: "hidden",
   },
-  progressFill: { height: "100%", borderRadius: 3 },
+  progressFill: {
+    height: "100%",
+    borderRadius: 7,
+  },
   timeRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 7,
   },
-  timeText: { color: "#9FB3C8", fontSize: 11, fontWeight: "700" },
+  timeText: {
+    color: "#7FA7C9",
+    fontSize: 12,
+    fontWeight: "800",
+  },
   controlsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 20,
   },
-  secondaryControl: { alignItems: "center", width: 72, paddingVertical: 8 },
-  controlIcon: { color: "#486581", fontSize: 28, lineHeight: 26 },
+  secondaryControl: {
+    alignItems: "center",
+    width: 78,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderColor: "#BFE3F8",
+    backgroundColor: "#FFFFFF",
+  },
+  controlIcon: {
+    color: "#0A7EC2",
+    fontSize: 32,
+    lineHeight: 30,
+  },
   controlLabel: {
-    color: "#627D98",
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 4,
+    color: "#486581",
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 2,
   },
   mainControl: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 999,
-    paddingHorizontal: 21,
-    paddingVertical: 14,
-    minWidth: 140,
-    shadowColor: "#102A43",
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 3,
+    borderBottomWidth: 6,
+    borderBottomColor: "rgba(0,0,0,0.22)",
+    paddingHorizontal: 26,
+    paddingVertical: 18,
+    minWidth: 156,
   },
   mainControlPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
   mainControlIcon: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: "900",
-    marginRight: 8,
+    marginRight: 9,
   },
-  mainControlLabel: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
+  mainControlLabel: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "900",
+  },
   disabled: { opacity: 0.3 },
   pressed: { opacity: 0.72 },
   sequenceHint: {
@@ -1012,22 +1164,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    marginTop: 16,
-    backgroundColor: "#F5FAFC",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#E6EEF4",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginTop: 18,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderColor: "#BFE3F8",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
   autoPlayTexts: { flex: 1 },
-  autoPlayTitle: { color: "#102A43", fontSize: 15, fontWeight: "800" },
+  autoPlayTitle: {
+    color: "#0B2A4A",
+    fontSize: 16,
+    fontWeight: "900",
+  },
   autoPlayHint: { color: "#627D98", fontSize: 12, fontWeight: "600", marginTop: 2 },
   mapCard: {
-    backgroundColor: "#F5FAFC",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#E6EEF4",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    borderColor: "#BFE3F8",
     padding: 12,
     marginBottom: 20,
   },
@@ -1049,25 +1207,31 @@ const styles = StyleSheet.create({
   mapHint: { flex: 1, color: "#102A43", fontSize: 14, fontWeight: "700" },
   mapOpenButton: {
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#0B3954",
-    paddingHorizontal: 18,
-    paddingVertical: 9,
+    backgroundColor: "#0AA7FD",
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    minHeight: 46,
+    justifyContent: "center",
   },
-  mapOpenText: { color: "#0B3954", fontSize: 14, fontWeight: "800" },
+  mapOpenText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+  },
   materialEmpty: { color: "#829AB1", fontSize: 13, fontWeight: "700", textAlign: "center" },
   materialSection: {
     marginTop: 28,
-    backgroundColor: "#F5FAFC",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#E6EEF4",
+    backgroundColor: "#FFF6CC",
+    borderRadius: 28,
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    borderColor: "#FFE066",
     padding: 18,
   },
   materialTitle: {
-    color: "#102A43",
-    fontSize: 22,
-    fontWeight: "800",
+    color: "#0B2A4A",
+    fontSize: 23,
+    fontWeight: "900",
     marginTop: 3,
     marginBottom: 14,
     letterSpacing: -0.4,
@@ -1076,9 +1240,9 @@ const styles = StyleSheet.create({
   materialCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#E6EEF4",
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: "#FFE066",
     padding: 12,
     alignItems: "center",
   },
@@ -1099,13 +1263,19 @@ const styles = StyleSheet.create({
   shareButton: {
     alignSelf: "stretch",
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#D9E2EC",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FF924C",
+    borderBottomWidth: 4,
+    borderBottomColor: "rgba(0,0,0,0.2)",
     paddingVertical: 11,
   },
-  shareButtonText: { color: "#102A43", fontSize: 14, fontWeight: "800" },
+  shareButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+  },
   scriptSection: { marginTop: 32 },
   scriptHeadingRow: {
     flexDirection: "row",
@@ -1114,9 +1284,9 @@ const styles = StyleSheet.create({
     marginBottom: 13,
   },
   scriptTitle: {
-    color: "#102A43",
-    fontSize: 21,
-    fontWeight: "800",
+    color: "#0B2A4A",
+    fontSize: 23,
+    fontWeight: "900",
     marginTop: 3,
   },
   scriptCount: {
@@ -1129,22 +1299,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E6EEF4",
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#BFE3F8",
+    padding: 14,
+    marginBottom: 10,
   },
   scriptNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#E6EEF4",
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#D9EEFB",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 11,
+    marginRight: 12,
   },
-  scriptNumberText: { color: "#627D98", fontSize: 12, fontWeight: "900" },
+  scriptNumberText: {
+    color: "#2F6690",
+    fontSize: 14,
+    fontWeight: "900",
+  },
   scriptNumberTextActive: { color: "#FFFFFF" },
   scriptCopy: { flex: 1 },
   scriptSpeaker: {
