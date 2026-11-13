@@ -9,6 +9,7 @@ import { useKeepAwake } from "expo-keep-awake";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  BackHandler,
   FlatList,
   Image,
   Linking,
@@ -80,6 +81,32 @@ export default function HomeScreen() {
     });
     return unsubscribe;
   }, [navigation]);
+
+  // Botão voltar do Android: com história aberta volta para a lista;
+  // na lista, pede confirmação antes de sair do app.
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (selectedStory) {
+          setSelectedStory(null);
+          return true;
+        }
+        Alert.alert(
+          "Sair do aplicativo?",
+          "Você realmente deseja sair?",
+          [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Sair", onPress: () => BackHandler.exitApp() },
+          ],
+          { cancelable: true },
+        );
+        return true;
+      },
+    );
+    return () => subscription.remove();
+  }, [selectedStory]);
 
   const openStory = (story: Story) => {
     setSelectedStory(story);
